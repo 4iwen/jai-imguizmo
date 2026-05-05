@@ -1,4 +1,4 @@
-IMGUIZMO_PATH :: "ImGuizmo";
+IMGUIZMO_PATH :: "ImGuizmo/src";
 IMGUI_PATH    :: "../jai-imgui/src/imgui";
 
 #run,stallable {
@@ -61,7 +61,7 @@ generate_imguizmo_bindings :: (args: [] string) -> bool {
             "-DIMGUI_DEFINE_MATH_OPERATORS",
             "-DWIN32_LEAN_AND_MEAN"
         );
-        array_add(*flatten_namespaces, "ImGuizmo");
+        array_add(*flatten_namespaces, "ImGuizmo", "ImCurveEdit");
 
         visitor = imguizmo_visitor;
     }
@@ -90,6 +90,7 @@ compile_imguizmo :: (compile_debug: bool) -> bool {
     success := build_cpp_static_lib(
         "bindings/macos/arm64/libImGuizmo",
         tprint("%/ImGuizmo.cpp", IMGUIZMO_PATH),
+        tprint("%/ImCurveEdit.cpp", IMGUIZMO_PATH),
         extra = extra,
         debug = compile_debug
     );
@@ -97,6 +98,7 @@ compile_imguizmo :: (compile_debug: bool) -> bool {
     success &&= build_cpp_dynamic_lib(
         "bindings/macos/arm64/ImGuizmo",
         tprint("%/ImGuizmo.cpp", IMGUIZMO_PATH),
+        tprint("%/ImCurveEdit.cpp", IMGUIZMO_PATH),
         extra = extra,
         library_files = .["../jai-imgui/macos/ImGui.a"],
         debug = compile_debug
@@ -107,7 +109,7 @@ compile_imguizmo :: (compile_debug: bool) -> bool {
 
 imguizmo_visitor :: (decl: *Declaration, parent_decl: *Declaration) -> Declaration_Visit_Result {
     if !parent_decl {
-        if decl.name == "ImGuizmo" {
+        if decl.name == "ImGuizmo" || decl.name == "ImCurveEdit" {
             return .RECURSE;
         }
 
@@ -115,13 +117,17 @@ imguizmo_visitor :: (decl: *Declaration, parent_decl: *Declaration) -> Declarati
         return .STOP;
     }
 
-    if parent_decl.name != "ImGuizmo" {
+    if parent_decl.name != "ImGuizmo" && parent_decl.name != "ImCurveEdit" {
         return .RECURSE;
     }
 
     if decl.kind == {
         case .FUNCTION;
-            decl.output_name = tprint("ImGuizmo_%", decl.name);
+            if parent_decl.name == "ImGuizmo" {
+                decl.output_name = tprint("ImGuizmo_%", decl.name);
+            } else if parent_decl.name == "ImCurveEdit" {
+                decl.output_name = tprint("ImCurveEdit_%", decl.name);
+            }
 
         case .ENUM;
             if decl.name == "OPERATION" {
@@ -161,6 +167,10 @@ BINDINGS_HEADER :: #string END
 
 ImGuiID :: ID;
 ImGuiWindow :: struct #type_info_none {}
+ImRect :: struct {
+    Min: ImVec2;
+    Max: ImVec2;
+}
 END
 
 BINDINGS_FOOTER_MACOS :: #string END

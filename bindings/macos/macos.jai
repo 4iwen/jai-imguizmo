@@ -1,7 +1,7 @@
 //
 // This file was auto-generated using the following command:
 //
-// jai generate.jai
+// jai modules/jai-imguizmo/generate.jai
 //
 #scope_export
 
@@ -10,6 +10,10 @@
 
 ImGuiID :: ID;
 ImGuiWindow :: struct #type_info_none {}
+ImRect :: struct {
+    Min: ImVec2;
+    Max: ImVec2;
+}
 
 
 
@@ -71,6 +75,13 @@ ImGuizmo_DrawAxes :: (view: *float, projection: *float, matrices: *float, matrix
 // Render a cube with face color corresponding to face normal. Usefull for debug/tests
 ImGuizmo_DrawCubes :: (view: *float, projection: *float, matrices: *float, matrixCount: s32) -> void #foreign imguizmo "_ZN8ImGuizmo9DrawCubesEPKfS1_S1_i";
 ImGuizmo_DrawGrid :: (view: *float, projection: *float, matrix: *float, gridSize: float) -> void #foreign imguizmo "_ZN8ImGuizmo8DrawGridEPKfS1_S1_f";
+
+// Render grid with customizable major line step and amount of segments between major lines.
+// NOTE(m.wlasiuk) : calling this function with majorStep = 1.0f and subdivision = 1 is equivalent to DrawGrid in terms of the end result but performs more calculations
+ImGuizmo_DrawGridCustom :: (view: *float, projection: *float, matrix: *float, gridSize: float, majorStep: float, subdivision: u32) -> void #foreign imguizmo "_ZN8ImGuizmo14DrawGridCustomEPKfS1_S1_ffj";
+
+// Render grid with customizable major line step and amount of segments between major lines and with possibility to set custom colors for major, minor and center lines
+ImGuizmo_DrawGridCustomColor :: (view: *float, projection: *float, matrix: *float, gridSize: float, majorStep: float, subdivision: u32, majorCol: ImU32, minorCol: ImU32, centerCol: ImU32) -> void #foreign imguizmo "_ZN8ImGuizmo19DrawGridCustomColorEPKfS1_S1_ffjjjj";
 
 // call it when you want a gizmo
 // Needs view and projection matrices.
@@ -196,6 +207,61 @@ ImGuizmo_Style :: struct {
 }
 
 ImGuizmo_GetStyle :: () -> *ImGuizmo_Style #foreign imguizmo "_ZN8ImGuizmo8GetStyleEv";
+
+CurveType :: enum u32 {
+    CurveNone     :: 0;
+    CurveDiscrete :: 1;
+    CurveLinear   :: 2;
+    CurveSmooth   :: 3;
+    CurveBezier   :: 4;
+}
+
+EditPoint :: struct {
+    curveIndex: s32;
+    pointIndex: s32;
+}
+
+Delegate :: struct {
+    vtable:  *Delegate_VTable;
+
+    focused  := false;
+}
+Delegate_VTable :: struct #type_info_none {
+    GetCurveCount:       #type (this: *Delegate) -> u64 #cpp_method;
+    IsVisible:           *void;
+    GetCurveType:        *void;
+    GetMin:              #type (this: *Delegate) -> *ImVec2 #cpp_method;
+    GetMax:              #type (this: *Delegate) -> *ImVec2 #cpp_method;
+    GetPointCount:       #type (this: *Delegate, curveIndex: u64) -> u64 #cpp_method;
+    GetCurveColor:       #type (this: *Delegate, curveIndex: u64) -> u32 #cpp_method;
+    GetPoints:           #type (this: *Delegate, curveIndex: u64) -> *ImVec2 #cpp_method;
+    EditPoint:           #type (this: *Delegate, curveIndex: u64, pointIndex: s32, value: ImVec2) -> s32 #cpp_method;
+    AddPoint:            #type (this: *Delegate, curveIndex: u64, value: ImVec2) -> void #cpp_method;
+    GetBackgroundColor:  *void;
+
+    BeginEdit:           *void;
+    EndEdit:             *void;
+
+    Destructor:          *void;
+    Destructor_Deleting: *void;
+}
+Delegate_GetCurveCount :: inline (this: *Delegate) -> u64 { return this.vtable.GetCurveCount(this); }
+
+Delegate_GetMin :: inline (this: *Delegate) -> *ImVec2 { return this.vtable.GetMin(this); }
+Delegate_GetMax :: inline (this: *Delegate) -> *ImVec2 { return this.vtable.GetMax(this); }
+Delegate_GetPointCount :: inline (this: *Delegate, curveIndex: u64) -> u64 { return this.vtable.GetPointCount(this, curveIndex); }
+Delegate_GetCurveColor :: inline (this: *Delegate, curveIndex: u64) -> u32 { return this.vtable.GetCurveColor(this, curveIndex); }
+Delegate_GetPoints :: inline (this: *Delegate, curveIndex: u64) -> *ImVec2 { return this.vtable.GetPoints(this, curveIndex); }
+Delegate_EditPoint :: inline (this: *Delegate, curveIndex: u64, pointIndex: s32, value: ImVec2) -> s32 { return this.vtable.EditPoint(this, curveIndex, pointIndex, value); }
+Delegate_AddPoint :: inline (this: *Delegate, curveIndex: u64, value: ImVec2) { this.vtable.AddPoint(this, curveIndex, value); }
+
+vtable :: (obj: *Delegate) -> *Delegate_VTable { return obj.vtable; }
+
+
+ImCurveEdit_Edit :: (delegate: *Delegate, size: *ImVec2, id: u32, clippingRect: *ImRect = null, selectedPoints: *ImVector(EditPoint) = null) -> s32 #foreign imguizmo "_ZN11ImCurveEdit4EditERNS_8DelegateERK6ImVec2jPK6ImRectP8ImVectorINS_9EditPointEE";
+ImCurveEdit_Edit :: (delegate: *Delegate, size: ImVec2, id: u32, clippingRect: *ImRect = null, selectedPoints: *ImVector(EditPoint) = null) -> s32 #no_context {
+    return ImCurveEdit_Edit(delegate, *size, id, clippingRect, selectedPoints);
+}
 
 #scope_file
 
