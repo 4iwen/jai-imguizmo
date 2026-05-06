@@ -1,7 +1,7 @@
 //
 // This file was auto-generated using the following command:
 //
-// jai modules/jai-imguizmo/generate.jai
+// jai generate.jai
 //
 #scope_export
 
