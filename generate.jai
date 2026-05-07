@@ -16,12 +16,16 @@ generate_imguizmo_bindings :: (args: [] string) -> bool {
     no_compile := array_find(args, "-no_compile");
     compile_debug := array_find(args, "-debug");
 
-    #if OS == .MACOS {
+    #if OS == .WINDOWS {
+        make_directory_if_it_does_not_exist("bindings");
+        make_directory_if_it_does_not_exist("bindings/windows");
+        make_directory_if_it_does_not_exist("bindings/windows/x64");
+    } else #if OS == .MACOS {
         make_directory_if_it_does_not_exist("bindings");
         make_directory_if_it_does_not_exist("bindings/macos");
         make_directory_if_it_does_not_exist("bindings/macos/arm64");
     } else {
-        compiler_report("ImGuizmo generator currently supports macOS only.\n");
+        compiler_report("ImGuizmo generator currently supports Windows and macOS only.\n");
         return false;
     }
 
@@ -35,7 +39,11 @@ generate_imguizmo_bindings :: (args: [] string) -> bool {
     {
         using opts;
 
-        #if OS == .MACOS {
+        #if OS == .WINDOWS {
+            array_add(*library_search_paths, "bindings/windows/x64");
+            array_add(*libraries, .{filename = "ImGuizmo.static", identifier = "imguizmo"});
+            output_filename = "bindings/windows/windows.jai";
+        } else #if OS == .MACOS {
             array_add(*library_search_paths, "bindings/macos/arm64");
             array_add(*libraries, .{filename = "ImGuizmo", identifier = "imguizmo"});
             output_filename = "bindings/macos/macos.jai";
@@ -51,7 +59,11 @@ generate_imguizmo_bindings :: (args: [] string) -> bool {
         strip_flags |= .INLINED_FUNCTIONS;
 
         header = BINDINGS_HEADER;
-        footer = BINDINGS_FOOTER_MACOS;
+        #if OS == .WINDOWS {
+            footer = BINDINGS_FOOTER_WINDOWS;
+        } else {
+            footer = BINDINGS_FOOTER_MACOS;
+        }
 
         array_add(*include_paths, IMGUIZMO_PATH, IMGUI_PATH);
         array_add(*source_files, "bindings.hpp");
@@ -70,7 +82,23 @@ generate_imguizmo_bindings :: (args: [] string) -> bool {
 }
 
 compile_imguizmo :: (compile_debug: bool) -> bool {
-    #if OS != .MACOS {
+    #if OS == .WINDOWS {
+        extra := string.[
+            "/std:c++20",
+            "/DIMGUI_DEFINE_MATH_OPERATORS",
+            "/DWIN32_LEAN_AND_MEAN",
+            tprint("/I%", IMGUI_PATH),
+            tprint("/I%", IMGUIZMO_PATH)
+        ];
+
+        return build_cpp_static_lib(
+            "bindings/windows/x64/ImGuizmo.static",
+            tprint("%/ImGuizmo.cpp", IMGUIZMO_PATH),
+            tprint("%/ImCurveEdit.cpp", IMGUIZMO_PATH),
+            extra = extra,
+            debug = compile_debug
+        );
+    } else #if OS != .MACOS {
         return false;
     }
 
@@ -175,4 +203,8 @@ END
 
 BINDINGS_FOOTER_MACOS :: #string END
 imguizmo :: #library,no_dll "arm64/libImGuizmo";
+END
+
+BINDINGS_FOOTER_WINDOWS :: #string END
+imguizmo :: #library,no_dll "x64/ImGuizmo.static";
 END
