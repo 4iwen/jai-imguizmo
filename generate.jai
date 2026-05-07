@@ -83,7 +83,7 @@ generate_imguizmo_bindings :: (args: [] string) -> bool {
 
 compile_imguizmo :: (compile_debug: bool) -> bool {
     #if OS == .WINDOWS {
-        extra := string.[
+        windows_extra := string.[
             "/std:c++20",
             "/DIMGUI_DEFINE_MATH_OPERATORS",
             "/DWIN32_LEAN_AND_MEAN",
@@ -95,44 +95,44 @@ compile_imguizmo :: (compile_debug: bool) -> bool {
             "bindings/windows/x64/ImGuizmo.static",
             tprint("%/ImGuizmo.cpp", IMGUIZMO_PATH),
             tprint("%/ImCurveEdit.cpp", IMGUIZMO_PATH),
-            extra = extra,
+            extra = windows_extra,
             debug = compile_debug
         );
-    } else #if OS != .MACOS {
+    } else #if OS == .MACOS {
+        macos_arm64_version_arg := "-mmacos-version-min=11.0";
+        macos_extra := string.[
+            "-arch", "arm64",
+            "-std=c++20",
+            "-fno-exceptions",
+            "-fno-rtti",
+            "-fno-threadsafe-statics",
+            macos_arm64_version_arg,
+            "-DIMGUI_DEFINE_MATH_OPERATORS",
+            tprint("-I%", IMGUI_PATH),
+            tprint("-I%", IMGUIZMO_PATH)
+        ];
+
+        success := build_cpp_static_lib(
+            "bindings/macos/arm64/libImGuizmo",
+            tprint("%/ImGuizmo.cpp", IMGUIZMO_PATH),
+            tprint("%/ImCurveEdit.cpp", IMGUIZMO_PATH),
+            extra = macos_extra,
+            debug = compile_debug
+        );
+
+        success &&= build_cpp_dynamic_lib(
+            "bindings/macos/arm64/ImGuizmo",
+            tprint("%/ImGuizmo.cpp", IMGUIZMO_PATH),
+            tprint("%/ImCurveEdit.cpp", IMGUIZMO_PATH),
+            extra = macos_extra,
+            library_files = .["../jai-imgui/macos/ImGui.a"],
+            debug = compile_debug
+        );
+
+        return success;
+    } else {
         return false;
     }
-
-    macos_arm64_version_arg := "-mmacos-version-min=11.0";
-    extra := string.[
-        "-arch", "arm64",
-        "-std=c++20",
-        "-fno-exceptions",
-        "-fno-rtti",
-        "-fno-threadsafe-statics",
-        macos_arm64_version_arg,
-        "-DIMGUI_DEFINE_MATH_OPERATORS",
-        tprint("-I%", IMGUI_PATH),
-        tprint("-I%", IMGUIZMO_PATH)
-    ];
-
-    success := build_cpp_static_lib(
-        "bindings/macos/arm64/libImGuizmo",
-        tprint("%/ImGuizmo.cpp", IMGUIZMO_PATH),
-        tprint("%/ImCurveEdit.cpp", IMGUIZMO_PATH),
-        extra = extra,
-        debug = compile_debug
-    );
-
-    success &&= build_cpp_dynamic_lib(
-        "bindings/macos/arm64/ImGuizmo",
-        tprint("%/ImGuizmo.cpp", IMGUIZMO_PATH),
-        tprint("%/ImCurveEdit.cpp", IMGUIZMO_PATH),
-        extra = extra,
-        library_files = .["../jai-imgui/macos/ImGui.a"],
-        debug = compile_debug
-    );
-
-    return success;
 }
 
 imguizmo_visitor :: (decl: *Declaration, parent_decl: *Declaration) -> Declaration_Visit_Result {
